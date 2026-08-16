@@ -11,6 +11,14 @@
     "phase4": "node src/phase4/hyperloglog.ts",
     "phase5": "node src/phase5/bloom-filter.ts",
     "phase6": "node src/phase6/rollup-cube.ts",
+    "phase7": "node src/phase7/exactly-once.ts",
+    "phase8": "node src/phase8/stream-table-duality.ts",
+    "phase9": "node src/phase9/stream-joins.ts",
+    "phase10": "node src/phase10/backpressure.ts",
+    "phase11": "node src/phase11/lambda-vs-kappa.ts",
+    "phase12": "node src/phase12/schema-evolution.ts",
+    "web": "node web/serve.mjs",
+    "deploy": "npx wrangler pages deploy web --project-name stream-processing",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": { "typescript": "^5.7.0", "@types/node": "^22.10.0" }

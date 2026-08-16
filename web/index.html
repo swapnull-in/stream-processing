@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stream Processing — Stream Lab</title>
+<meta name="description" content="An interactive lab for stream processing & real-time analytics: windows, watermarks, stream joins, exactly-once, stream-table duality, Count-Min Sketch, HyperLogLog, Bloom filters, rollup cubes, backpressure, Lambda vs Kappa, and schema evolution." />
+<meta name="theme-color" content="#faf9f6" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0d0d13" media="(prefers-color-scheme: dark)" />
+<link rel="preload" href="fonts/space-grotesk-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="fonts/ibm-plex-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+<style>
+  @font-face { font-family:"Space Grotesk"; font-style:normal; font-weight:500; font-display:swap; src:url(fonts/space-grotesk-latin-500-normal.woff2) format("woff2"); }
+  @font-face { font-family:"Space Grotesk"; font-style:normal; font-weight:600; font-display:swap; src:url(fonts/space-grotesk-latin-600-normal.woff2) format("woff2"); }
+  @font-face { font-family:"Space Grotesk"; font-style:normal; font-weight:700; font-display:swap; src:url(fonts/space-grotesk-latin-700-normal.woff2) format("woff2"); }
+  @font-face { font-family:"IBM Plex Sans"; font-style:normal; font-weight:400; font-display:swap; src:url(fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2"); }
+  @font-face { font-family:"IBM Plex Sans"; font-style:normal; font-weight:500; font-display:swap; src:url(fonts/ibm-plex-sans-latin-500-normal.woff2) format("woff2"); }
+  @font-face { font-family:"IBM Plex Sans"; font-style:normal; font-weight:600; font-display:swap; src:url(fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2"); }
+  @font-face { font-family:"IBM Plex Mono"; font-style:normal; font-weight:400; font-display:swap; src:url(fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2"); }
+  @font-face { font-family:"IBM Plex Mono"; font-style:normal; font-weight:500; font-display:swap; src:url(fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2"); }
+  :root {
+    --bg:#faf9f6; --panel:#ffffff; --panel-2:#f4f2ec; --sidebar-bg:#f4f2ec; --hover:#ebe9e1;
+    --ink:#191a20; --muted:#6c6d78; --line:#e7e3da;
+    --accent:#0e7490; --accent-soft:#dcf1f5; --amber:#b96608; --amber-soft:#fbeed6;
+    --good:#0f9d6a; --good-soft:#e0f2ea; --warn:#b96608; --warn-soft:#fbeed6; --bad:#dd4650; --bad-soft:#fbe4e6; --info:#2f6db0;
+    --grid:#d7dbd2;
+    --shadow:0 1px 2px rgba(24,20,40,.04), 0 10px 30px -16px rgba(24,20,40,.18);
+    --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans:"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --display:"Space Grotesk", var(--sans);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0d0d13; --panel:#16161e; --panel-2:#1d1d27; --sidebar-bg:#0a0a10; --hover:#20202c;
+      --ink:#ecebf2; --muted:#9698a6; --line:#282833;
+      --accent:#4cc9e8; --accent-soft:#0d2630; --amber:#f0b45a; --amber-soft:#2a2216;
+      --good:#40d98c; --good-soft:#12261e; --warn:#f0b45a; --warn-soft:#2a2216; --bad:#ff6b72; --bad-soft:#2a141a; --info:#6ea8e0;
+      --grid:#282c34;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.7);
+    }
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; }
+  body { background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.55; -webkit-font-smoothing:antialiased; }
+  code, .mono { font-variant-numeric:tabular-nums; }
+  .app { display:flex; align-items:flex-start; min-height:100vh; }
+  .sidebar { position:sticky; top:0; height:100vh; width:276px; flex:none; z-index:40; display:flex; flex-direction:column; overflow-y:auto; padding:20px 14px 16px; background:var(--sidebar-bg); border-right:1px solid var(--line); }
+  .brand { display:flex; align-items:center; gap:11px; padding:4px 10px 16px; margin-bottom:6px; border-bottom:1px solid var(--line); }
+  .glyph { width:32px; height:32px; flex:none; border-radius:9px; background:var(--accent); display:grid; place-items:center; color:#fff; font-family:var(--mono); font-size:18px; box-shadow:0 5px 14px -5px color-mix(in srgb, var(--accent) 60%, transparent); }
+  .brand .wm { display:flex; flex-direction:column; line-height:1.25; }
+  .brand .wm b { font-family:var(--display); font-weight:600; font-size:14.5px; letter-spacing:-.01em; }
+  .brand .wm span { font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+  nav.nav { display:flex; flex-direction:column; }
+  .nav-group { margin-top:13px; }
+  .nav-group-label { font-family:var(--mono); font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); padding:0 11px 6px; }
+  .nav-item { display:flex; align-items:center; gap:11px; width:100%; text-align:left; cursor:pointer; background:none; border:none; font-family:var(--sans); font-size:13.5px; color:var(--muted); padding:7px 11px; border-radius:8px; transition:.12s; line-height:1.3; }
+  .nav-item .n { font-family:var(--mono); font-size:11px; color:color-mix(in srgb, var(--muted) 75%, transparent); min-width:15px; text-align:right; }
+  .nav-item:hover { background:var(--hover); color:var(--ink); }
+  .nav-item.active { background:var(--accent-soft); color:var(--accent); font-weight:500; }
+  .nav-item.active .n { color:var(--accent); }
+  .side-foot { margin-top:auto; padding:15px 11px 2px; font-family:var(--mono); font-size:11px; line-height:1.7; color:var(--muted); }
+  .side-foot a { color:var(--muted); text-decoration:none; border-bottom:1px solid var(--line); }
+  .side-foot a:hover { color:var(--accent); border-color:var(--accent); }
+  .main { flex:1; min-width:0; padding:42px clamp(24px,4vw,60px) 100px; }
+  .main-inner { max-width:960px; margin:0 auto; }
+  .topbar, .backdrop { display:none; }
+  .hero-eyebrow { font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin:0 0 14px; }
+  .hero h1 { font-family:var(--display); font-weight:600; font-size:clamp(31px,4.6vw,47px); margin:0 0 16px; letter-spacing:-.026em; line-height:1.03; max-width:16ch; }
+  .hero h1 em { font-style:normal; color:var(--accent); }
+  .hero p { color:var(--muted); margin:0; max-width:62ch; font-size:16.5px; line-height:1.6; }
+  .hero p strong { color:var(--ink); font-weight:600; }
+  .levers { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px,1fr)); gap:12px; margin:30px 0 4px; }
+  .lever { background:var(--panel); border:1px solid var(--line); border-radius:13px; padding:15px 16px; box-shadow:var(--shadow); }
+  .lever b { font-family:var(--display); font-weight:600; font-size:14px; display:block; margin-bottom:4px; }
+  .lever span { font-size:12.5px; color:var(--muted); line-height:1.5; }
+  .overview-hint { font-size:14.5px; color:var(--muted); margin:24px 0 0; line-height:1.6; max-width:66ch; }
+  .overview-hint b { color:var(--ink); font-weight:600; }
+  section.phase { display:none; }
+  section.phase.active { display:block; animation:fade .22s ease; }
+  @keyframes fade { from { opacity:0; transform:translateY(5px); } to { opacity:1; } }
+  .phase h2 { font-family:var(--display); font-weight:600; font-size:25px; margin:0 0 6px; letter-spacing:-.02em; }
+  .phase .lede { color:var(--muted); margin:0 0 20px; max-width:76ch; font-size:15.5px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px 22px; margin-bottom:16px; box-shadow:var(--shadow); }
+  .lab { display:grid; grid-template-columns:244px 1fr; gap:22px; align-items:start; }
+  @media (max-width:760px){ .lab { grid-template-columns:1fr; } }
+  .controls { display:flex; flex-direction:column; gap:11px; }
+  .stage { min-width:0; display:flex; flex-direction:column; gap:14px; }
+  label.fld { display:block; font-family:var(--mono); font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+  input[type=range] { width:100%; accent-color:var(--accent); height:4px; }
+  .slabel { display:flex; justify-content:space-between; align-items:baseline; font-family:var(--mono); font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .slabel b { color:var(--ink); font-size:14px; }
+  button.act { font-family:var(--sans); font-size:13px; background:var(--accent); color:#fff; border:none; padding:9px 14px; border-radius:9px; cursor:pointer; font-weight:500; text-align:left; box-shadow:0 4px 12px -5px color-mix(in srgb, var(--accent) 60%, transparent); transition:.14s; }
+  button.act:hover { filter:brightness(1.06); }
+  button.ghost { font-family:var(--sans); font-size:13px; background:var(--panel-2); color:var(--ink); border:1px solid var(--line); padding:8px 12px; border-radius:9px; cursor:pointer; text-align:left; }
+  button.ghost:hover { border-color:var(--accent); }
+  button.ghost.sel { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; } .seg button { flex:1 1 auto; }
+  .toggle { display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--ink); cursor:pointer; user-select:none; }
+  .toggle input { width:16px; height:16px; accent-color:var(--accent); }
+  .nav-item:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .verdict { font-family:var(--mono); font-size:13px; border-radius:9px; padding:11px 13px; border:1px solid var(--line); display:flex; gap:10px; align-items:baseline; background:var(--panel-2); }
+  .verdict .dot { width:9px; height:9px; border-radius:50%; flex:none; translate:0 2px; background:var(--muted); }
+  .verdict.ok { background:var(--good-soft); border-color:color-mix(in srgb,var(--good) 40%,transparent); } .verdict.ok .dot { background:var(--good); }
+  .verdict.bad { background:var(--bad-soft); border-color:color-mix(in srgb,var(--bad) 40%,transparent); } .verdict.bad .dot { background:var(--bad); }
+  .verdict.warn { background:var(--warn-soft); border-color:color-mix(in srgb,var(--warn) 40%,transparent); } .verdict.warn .dot { background:var(--warn); }
+  .proof { font-size:13px; color:var(--muted); border-left:3px solid var(--accent); padding:8px 0 8px 13px; margin-top:2px; background:linear-gradient(90deg, var(--accent-soft), transparent 80%); border-radius:0 8px 8px 0; }
+  .proof b { color:var(--ink); }
+  code { font-family:var(--mono); background:var(--accent-soft); color:var(--accent); padding:1px 5px; border-radius:5px; font-size:.88em; }
+  .big { font-family:var(--mono); font-size:23px; font-variant-numeric:tabular-nums; }
+  .big small { font-size:11px; color:var(--muted); font-family:var(--mono); text-transform:uppercase; letter-spacing:.06em; display:block; }
+  svg.viz { width:100%; height:auto; display:block; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; }
+  svg.viz text { font-family:var(--mono); }
+  .chart { display:flex; align-items:flex-end; gap:3px; height:150px; padding-top:12px; border-bottom:1px solid var(--line); }
+  .colb { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:2px; height:100%; }
+  .gp { width:100%; border-radius:3px 3px 0 0; background:var(--accent); transition:height .3s; min-height:1px; }
+  .colb .rn { font-family:var(--mono); font-size:8px; color:var(--muted); }
+  .krow { display:flex; gap:10px; flex-wrap:wrap; }
+  .kcard { flex:1 1 120px; border:1px solid var(--line); border-radius:9px; padding:9px 12px; background:var(--panel-2); }
+  .kcard h4 { margin:0 0 5px; font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; }
+  table.cmp { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12.5px; }
+  table.cmp th, table.cmp td { text-align:right; padding:6px 9px; border-bottom:1px solid var(--line); }
+  table.cmp th:first-child, table.cmp td:first-child { text-align:left; }
+  table.cmp th { color:var(--muted); font-weight:500; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; }
+  .flow { display:flex; gap:4px; flex-wrap:wrap; min-height:26px; }
+  .tok { font-family:var(--mono); font-size:12px; padding:4px 7px; border-radius:7px; border:1px solid var(--line); background:var(--panel); }
+  .tok.ok { border-color:var(--good); color:var(--good); background:var(--good-soft); }
+  .tok.bad { border-color:var(--bad); color:var(--bad); background:var(--bad-soft); }
+  .tok.hi { border-color:var(--accent); color:var(--accent); }
+  .log-list { font-family:var(--mono); font-size:12px; line-height:1.7; max-height:170px; overflow:auto; }
+  @media (max-width:880px) {
+    .app { display:block; }
+    .topbar { display:flex; align-items:center; gap:11px; position:sticky; top:0; z-index:30; padding:11px 16px; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:saturate(1.5) blur(10px); border-bottom:1px solid var(--line); }
+    .topbar b { font-family:var(--display); font-weight:600; font-size:15.5px; }
+    .hamburger { margin-left:auto; display:grid; place-items:center; width:38px; height:38px; border:1px solid var(--line); border-radius:9px; background:var(--panel); color:var(--ink); cursor:pointer; font-family:var(--mono); font-size:17px; }
+    .sidebar { position:fixed; top:0; left:0; height:100dvh; width:286px; transform:translateX(-100%); transition:transform .22s ease; box-shadow:0 0 70px rgba(0,0,0,.28); }
+    .app.nav-open .sidebar { transform:none; }
+    .backdrop { display:block; position:fixed; inset:0; z-index:39; background:rgba(0,0,0,.42); opacity:0; pointer-events:none; transition:opacity .22s; }
+    .app.nav-open .backdrop { opacity:1; pointer-events:auto; }
+    .main { padding:22px 18px 84px; }
+    .lab { grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto !important; animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="glyph">≋</span><span class="wm"><b>Stream Lab</b><span>Stream processing</span></span></div>
+    <nav class="nav" id="nav" aria-label="Lessons"></nav>
+    <div class="side-foot">Every panel is also a runnable <code style="font-size:10px">npm run phaseN</code>.<br /><a href="https://github.com/swapnull-in/stream-processing" target="_blank" rel="noopener">View source ↗</a></div>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
+  <main class="main">
+    <div class="topbar"><span class="glyph">≋</span><b>Stream Lab</b><button class="hamburger" id="hamburger" aria-label="Toggle navigation">≡</button></div>
+    <div class="main-inner">
+
+    <!-- OVERVIEW -->
+    <section class="phase" data-tab="Overview">
+      <div class="hero">
+        <p class="hero-eyebrow">Stream processing · Stream Lab</p>
+        <h1>Compute over data that <em>never ends</em>.</h1>
+        <p>Batch and stream are the same computation over bounded vs unbounded data — the difference is <em>time</em> and
+          <em>state</em>. This lab draws the hard parts interviewers probe: event-time vs processing-time, watermarks,
+          exactly-once (a property of the <strong>effect on state</strong>, not delivery), the probabilistic-counting
+          toolbox, and the Lambda-vs-Kappa drift tax.</p>
+      </div>
+      <div class="levers">
+        <div class="lever"><b>Time &amp; windows</b><span>Windowing, watermarks &amp; late data, stream joins.</span></div>
+        <div class="lever"><b>The probabilistic toolbox</b><span>Count-Min Sketch, HyperLogLog, Bloom filter.</span></div>
+        <div class="lever"><b>Correctness &amp; state</b><span>Exactly-once, stream-table duality, backpressure.</span></div>
+        <div class="lever"><b>Architecture</b><span>Rollup cubes, Lambda vs Kappa, schema evolution.</span></div>
+      </div>
+      <p class="overview-hint"><b>Pick a lesson in the sidebar.</b> The driving question behind every choice:
+        <em>what latency does the business actually need, and what does each tier cost?</em> Most "real-time" is really
+        "within a few minutes" — default to batch, and escalate to streaming only when a named requirement forces it.</p>
+    </section>
+
+    <!-- 1 · WINDOWS -->
+    <section class="phase" data-tab="1 · Windows">
+      <h2>Windows — slicing an endless stream</h2>
+      <p class="lede">You can't aggregate an infinite stream without cutting it into finite chunks.
+        <strong>Tumbling</strong> (fixed, non-overlapping), <strong>sliding</strong> (fixed, overlapping by a slide),
+        <strong>session</strong> (dynamic, closed by an inactivity gap). Each event lands in one tumbling window — but
+        many sliding windows, which is the fan-out trap.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><label class="fld">window type</label><div class="seg"><button class="ghost sel" id="wd-tumble">tumbling</button><button class="ghost" id="wd-slide">sliding</button><button class="ghost" id="wd-session">session</button></div></div>
+          <div class="verdict ok" id="wd-verdict"><span class="dot"></span><span id="wd-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <svg class="viz" id="wd-svg" viewBox="0 0 420 170"></svg>
+          <p class="proof"><b>The proof:</b> tumbling puts each event in exactly one bucket — cheapest state, easiest to
+            reconcile against batch. Sliding (size 4, slide 1) puts each event in up to <b>4</b> windows — a 1-hour window
+            with a 1-second slide is 3600× the state, so reformulate heavy sliding aggregates as one running total.
+            Session windows close after a gap of inactivity and need a max-duration TTL or they OOM.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 2 · WATERMARKS -->
+    <section class="phase" data-tab="2 · Watermarks">
+      <h2>Event time &amp; watermarks</h2>
+      <p class="lede">A click at 12:00:59 on a phone in a tunnel arrives at 12:01:03. Bucket by <strong>processing
+        time</strong> and it lands in the wrong minute; bucket by <strong>event time</strong> and it's correct — but now
+        you need to know when a window is "done." A <strong>watermark</strong> (<code>maxEventTime − lateness</code>)
+        asserts "I've seen everything up to here"; events behind it are <strong>late</strong>.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><div class="slabel"><span>allowed lateness</span><b id="wm-lv">2s</b></div><input type="range" id="wm-l" min="0" max="6" value="2" /></div>
+          <button class="act" id="wm-step">▶ Deliver next event</button>
+          <button class="ghost" id="wm-reset">↺ Reset</button>
+          <div class="verdict" id="wm-verdict"><span class="dot"></span><span id="wm-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <svg class="viz" id="wm-svg" viewBox="0 0 420 170"></svg>
+          <p class="proof"><b>The proof:</b> events arrive out of order (by event time); the watermark advances as
+            <code>maxEventTime − lateness</code>. When it passes a window's end, the window <b>closes and fires</b>. An
+            event whose event time is behind the watermark is <b>late</b> — dropped or sent to a side output. Smaller
+            lateness = lower latency but more dropped stragglers; it's a knob, not a correctness guarantee.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 9 · JOINS -->
+    <section class="phase" data-tab="9 · Stream joins">
+      <h2>Joins — windowed, and the as-of trap</h2>
+      <p class="lede"><strong>Stream-stream</strong> joins match two event streams within a time window (impression →
+        click attribution) — state grows with window × throughput. <strong>Stream-table</strong> enrichment must be a
+        <strong>temporal/as-of</strong> join: look up the dimension value <em>as of the event's time</em>, not the
+        current value, or replays produce different numbers.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><label class="fld">join</label><div class="seg"><button class="ghost sel" id="jn-ss">stream-stream</button><button class="ghost" id="jn-st">stream-table</button></div></div>
+          <div id="jn-ss-ctl"><div><div class="slabel"><span>attribution window</span><b id="jn-wv">30s</b></div><input type="range" id="jn-w" min="10" max="60" value="30" /></div></div>
+          <div id="jn-st-ctl" style="display:none"><label class="toggle"><input type="checkbox" id="jn-asof" checked /> Temporal (as-of event time)</label></div>
+          <div class="verdict" id="jn-verdict"><span class="dot"></span><span id="jn-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <svg class="viz" id="jn-svg" viewBox="0 0 420 160"></svg>
+          <p class="proof" id="jn-proof"><b>The proof:</b> a click within the window of its impression is attributed; a
+            click that arrives after the window closes misses the join (no credit). Widen the window and you catch more —
+            but state = window × throughput, so a wide window on a high-volume stream is a memory bomb.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 3 · COUNT-MIN -->
+    <section class="phase" data-tab="3 · Count-Min">
+      <h2>Count-Min Sketch — frequency in fixed memory</h2>
+      <p class="lede">"How many times did X appear?" over a huge stream, in fixed memory. Hash each item into
+        <strong>d rows × w counters</strong>, incrementing one cell per row. The estimate is the <strong>minimum</strong>
+        across rows (collisions only ever <em>add</em>, so the min is the tightest over-estimate). Slight over-count,
+        never under.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><div class="slabel"><span>counters per row (w)</span><b id="cm-wv">12</b></div><input type="range" id="cm-w" min="6" max="24" value="12" /></div>
+          <button class="act" id="cm-run">▶ Stream 3,000 events</button>
+          <div class="verdict ok" id="cm-verdict"><span class="dot"></span><span id="cm-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <svg class="viz" id="cm-svg" viewBox="0 0 420 130"></svg>
+          <table class="cmp"><thead><tr><th>item</th><th>true</th><th>estimate</th><th>over</th></tr></thead><tbody id="cm-tbody"></tbody></table>
+          <p class="proof"><b>The proof:</b> a fixed <span id="cm-cells">36</span>-cell sketch (d=3 rows) estimates the hot
+            items' frequencies without storing per-item counters. Because two items can hash to the same cell, a count can
+            only be inflated — so taking the <b>min</b> across rows gives the tightest estimate, always ≥ the truth. Wider
+            rows = fewer collisions = tighter estimates.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 4 · HYPERLOGLOG -->
+    <section class="phase" data-tab="4 · HyperLogLog">
+      <h2>HyperLogLog — distinct count in a few KB</h2>
+      <p class="lede">"How many <em>distinct</em> users?" over billions of events without storing them. HLL hashes each
+        item and tracks the longest run of leading zeros seen per register — a rare long run implies a large cardinality.
+        A few KB of registers estimates millions of distinct items to <strong>~2%</strong>, and HLLs
+        <strong>merge</strong> across shards.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><div class="slabel"><span>true distinct users</span><b id="hl-cv">200k</b></div><input type="range" id="hl-c" min="1000" max="1000000" step="1000" value="200000" /></div>
+          <div class="verdict ok" id="hl-verdict"><span class="dot"></span><span id="hl-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <div class="krow">
+            <div class="kcard"><h4>true</h4><div class="big" id="hl-true">—</div></div>
+            <div class="kcard"><h4>HLL estimate</h4><div class="big" id="hl-est" style="color:var(--accent)">—</div></div>
+            <div class="kcard"><h4>memory</h4><div class="big" id="hl-mem" style="font-size:19px">~12 KB</div></div>
+          </div>
+          <p class="proof"><b>The proof:</b> exact distinct counting needs a set of every id seen (megabytes at millions
+            of users); HLL holds a fixed ~12 KB of registers and estimates the cardinality to within ~2% regardless of
+            scale. The killer feature: two shards' HLLs <b>merge</b> by taking the per-register max — so you count global
+            uniques by combining per-shard sketches, never shuffling raw ids.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 5 · BLOOM -->
+    <section class="phase" data-tab="5 · Bloom filter">
+      <h2>Bloom filter — "have I seen X?"</h2>
+      <p class="lede">A bit array + k hash functions. Adding X sets k bits; querying X checks those k bits. If any is 0,
+        X is <strong>definitely not</strong> present (no false negatives). If all are 1, X is <strong>probably</strong>
+        present (a tunable false-positive rate). Fixed memory, no stored items.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><div class="slabel"><span>bits per item (m/n)</span><b id="bf-bv">10</b></div><input type="range" id="bf-b" min="4" max="20" value="10" /></div>
+          <button class="act" id="bf-run">▶ Add 1,000 items, test 10,000 misses</button>
+          <div class="verdict ok" id="bf-verdict"><span class="dot"></span><span id="bf-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <div class="krow">
+            <div class="kcard"><h4>false negatives</h4><div class="big" id="bf-fn" style="color:var(--good)">0</div></div>
+            <div class="kcard"><h4>false-positive rate</h4><div class="big" id="bf-fp" style="color:var(--amber)">—</div></div>
+            <div class="kcard"><h4>textbook formula</h4><div class="big" id="bf-formula" style="font-size:19px">—</div></div>
+          </div>
+          <p class="proof"><b>The proof:</b> zero false negatives — if a bit is 0, the item was never added, guaranteed.
+            The measured false-positive rate tracks the textbook <code>(1−e^(−kn/m))^k</code>. More bits per item drives
+            it down exponentially. That's why a Bloom filter guards an expensive lookup (a disk/cache miss): "definitely
+            not here" skips the query entirely.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 7 · EXACTLY-ONCE -->
+    <section class="phase" data-tab="7 · Exactly-once">
+      <h2>Exactly-once — a property of state, not delivery</h2>
+      <p class="lede">Exactly-once is <strong>effectively-once</strong>: each event affects <em>state</em> once despite
+        replays. A checkpoint snapshots state + source offset together; on crash you rewind and replay. Whether the total
+        is right depends entirely on the <strong>sink</strong> — a non-idempotent counter double-counts; an idempotent
+        upsert converges.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><label class="fld">sink</label><div class="seg"><button class="ghost sel" id="eo-naive">counter (+= 1)</button><button class="ghost" id="eo-idem">idempotent upsert</button></div></div>
+          <button class="act" id="eo-run">▶ Process, crash before checkpoint, replay</button>
+          <div class="verdict" id="eo-verdict"><span class="dot"></span><span id="eo-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <svg class="viz" id="eo-svg" viewBox="0 0 420 130"></svg>
+          <div class="krow">
+            <div class="kcard"><h4>correct total</h4><div class="big" id="eo-correct" style="color:var(--good)">10</div></div>
+            <div class="kcard"><h4>total after replay</h4><div class="big" id="eo-actual">—</div></div>
+          </div>
+          <p class="proof"><b>The proof:</b> the job checkpoints state + offset, processes past the checkpoint, then
+            crashes and rewinds to the last checkpoint — replaying the in-between events. A <code>+= 1</code> counter
+            counts them <b>twice</b> (over-count); an upsert keyed by each event's id overwrites, so the replay is a
+            no-op and the total <b>converges</b>. You cannot get exactly-once from a non-idempotent, non-transactional
+            sink — default to at-least-once + idempotent upserts, reserve 2PC for money.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 8 · DUALITY -->
+    <section class="phase" data-tab="8 · Stream-table duality">
+      <h2>Stream ⇄ table — the same data, two views</h2>
+      <p class="lede">A <strong>stream</strong> is a sequence of changes (a changelog); a <strong>table</strong> is a
+        snapshot of current state. A table is a materialized stream (fold the changelog, latest per key); a stream is a
+        table's changelog (CDC). Log <strong>compaction</strong> makes a topic <em>be</em> a table.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <button class="act" id="du-add">＋ Append a change</button>
+          <label class="toggle"><input type="checkbox" id="du-compact" /> Compact the log</label>
+          <button class="ghost" id="du-reset">↺ Reset</button>
+          <div class="verdict" id="du-verdict"><span class="dot"></span><span id="du-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <div class="krow">
+            <div class="kcard" style="flex:2 1 200px"><h4>KStream — changelog (every record)</h4><div class="flow" id="du-stream"></div></div>
+          </div>
+          <div class="kcard"><h4>KTable — latest value per key (fold)</h4><div class="flow" id="du-table"></div></div>
+          <p class="proof"><b>The proof:</b> every change appends to the stream; folding the changelog by key yields the
+            table (latest value per key) — <code>GROUP BY</code>/upsert. Compaction keeps only the latest record per key,
+            garbage-collecting the rest — the compacted log <em>is</em> the table. This duality is why CDC works: a
+            database's WAL is a stream, so Debezium turns an OLTP table into an ordered event stream — retiring dual
+            writes.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 10 · BACKPRESSURE -->
+    <section class="phase" data-tab="10 · Backpressure">
+      <h2>Backpressure — a feature, not a bug</h2>
+      <p class="lede">When a downstream operator slows (the OLAP sink is busy), it withholds <strong>credits</strong> from
+        upstream, cascading back to the source, which reads Kafka slower. Unconsumed records accumulate as durable
+        <strong>Kafka lag</strong> — the pipeline degrades to higher <em>latency</em>, never data loss. A naive consumer
+        with no flow control OOMs instead.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><label class="fld">consumer</label><div class="seg"><button class="ghost sel" id="bp-flow">credit-based</button><button class="ghost" id="bp-naive">naive (no flow control)</button></div></div>
+          <button class="act" id="bp-run">▶ Run · fast source, slow sink, then recover</button>
+          <div class="verdict" id="bp-verdict"><span class="dot"></span><span id="bp-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <div class="chart" id="bp-chart"></div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="bp-legend">Kafka lag (bounded memory) per tick · sink slow ticks 4–12, then recovers</div>
+          <p class="proof"><b>The proof:</b> credit-based flow control cascades the throttle sink → window → map →
+            source, so the source reads Kafka slower and the backlog sits safely in the <b>durable log as lag</b> —
+            operator memory stays bounded and drains once the sink recovers. A naive consumer keeps pulling and its
+            in-memory buffer grows without bound → OOM. Diagnose by <em>where</em> it originates: a slow sink → scale/
+            batch the sink; a slow map → it's CPU-bound. Backpressure is the symptom, not the cause.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 6 · ROLLUP -->
+    <section class="phase" data-tab="6 · Rollup cube">
+      <h2>Rollup cube — build each grain once</h2>
+      <p class="lede">A dashboard needs counts by minute, hour, and day. Don't rescan the raw firehose for each — build
+        the fine grain once, then <strong>roll up, never recount</strong>: the hour is the sum of its minutes, which is
+        the sum of its raw events. Exactly.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <button class="act" id="ru-run">▶ Roll up 1,440 minutes → hours → day</button>
+          <div class="verdict ok" id="ru-verdict"><span class="dot"></span><span id="ru-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <svg class="viz" id="ru-svg" viewBox="0 0 420 150"></svg>
+          <p class="proof"><b>The proof:</b> the hourly count equals the sum of its 60 minute-buckets equals a raw
+            recount — <em>exactly</em>, because count is a distributive aggregate. So you materialize the minute grain
+            once from the firehose and derive every coarser grain by summing, never rescanning. (Averages roll up too —
+            but keep sum + count, never average-of-averages; and distinct counts need HLL, which merges, not a plain
+            sum.)</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 11 · LAMBDA VS KAPPA -->
+    <section class="phase" data-tab="11 · Lambda vs Kappa">
+      <h2>Lambda vs Kappa — the drift tax</h2>
+      <p class="lede"><strong>Lambda</strong> runs two paths — a batch layer (exact) and a speed layer (fast, approximate)
+        — and merges them. The flaw: the <em>same</em> logic lives in two codebases that <strong>drift</strong>.
+        <strong>Kappa</strong> keeps one stream codebase over a replayable log; recompute by replaying. The staff answer
+        is unified-code Kappa: one function, run as batch or stream.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <div><label class="fld">architecture</label><div class="seg"><button class="ghost sel" id="lk-lambda">Lambda</button><button class="ghost" id="lk-kappa">Kappa</button></div></div>
+          <button class="act" id="lk-run">▶ Aggregate a log with a late event</button>
+          <div class="verdict" id="lk-verdict"><span class="dot"></span><span id="lk-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <div class="krow">
+            <div class="kcard"><h4>batch layer (exact)</h4><div class="big" id="lk-batch">—</div></div>
+            <div class="kcard"><h4>speed layer / stream</h4><div class="big" id="lk-speed" style="color:var(--accent)">—</div></div>
+          </div>
+          <p class="proof"><b>The proof:</b> under Lambda, the batch layer counts the late event and the speed layer
+            (which drops it) does not — the two numbers <b>disagree</b>, and the serving layer must reconcile two
+            codebases that drift every time you change the logic in one. Under Kappa there's one codebase: replaying the
+            log yields the exact same number as a fresh run, and the <em>same</em> function runs as a bounded batch for
+            backfills and an unbounded stream for live — no drift.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- 12 · SCHEMA EVOLUTION -->
+    <section class="phase" data-tab="12 · Schema evolution">
+      <h2>Schema evolution — ship independently</h2>
+      <p class="lede">A field rename by one team shouldn't break fifty consumers. A <strong>schema registry</strong> stores
+        versioned schemas and enforces compatibility at produce time. <strong>Backward</strong> compatibility (add
+        optional fields) lets new consumers read old data and old consumers read new — no coordinated deploy. A rename is
+        a breaking change it rejects.</p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <button class="act" id="se-add">＋ Add optional field <code style="font-size:10px">campaignId</code></button>
+          <button class="act" id="se-rename">✎ Rename <code style="font-size:10px">pageId → pageUrl</code></button>
+          <button class="ghost" id="se-reset">↺ Reset</button>
+          <div class="verdict" id="se-verdict"><span class="dot"></span><span id="se-vtext">—</span></div>
+        </div>
+        <div class="stage">
+          <div class="log-list" id="se-log">—</div>
+          <p class="proof"><b>The proof:</b> adding an <em>optional field with a default</em> is backward-compatible — the
+            registry accepts it, a v1 consumer ignores the new field, and a v2 consumer reads v1 data via the default. No
+            lockstep deploy. A <em>rename</em> is a breaking change the registry <b>rejects at registration</b>, before a
+            single bad record is produced — you handle it as a migration (add <code>pageUrl</code> optional, backfill,
+            deprecate <code>pageId</code>). Messages carry a small schema ID, not the whole schema.</p>
+        </div>
+      </div></div>
+    </section>
+
+    <div class="side-foot" style="margin-top:24px; padding-top:22px; border-top:1px solid var(--line); text-align:center">Browser port of the <code style="font-size:10px">src/phase*</code> scripts · same mechanics · MIT</div>
+    </div><!-- /main-inner -->
+  </main>
+</div>
+
+<script>
+const sections = [...document.querySelectorAll('section.phase')];
+const navEl = document.getElementById('nav'), appEl = document.getElementById('app');
+const tabButtons = [];
+const slug = s => s.dataset.tab.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const closeNav = () => appEl.classList.remove('nav-open');
+const TIER_OF = {
+  'overview':'Overview',
+  '1-windows':'Time & windows','2-watermarks':'Time & windows','9-stream-joins':'Time & windows',
+  '3-count-min':'Probabilistic toolbox','4-hyperloglog':'Probabilistic toolbox','5-bloom-filter':'Probabilistic toolbox',
+  '7-exactly-once':'Correctness & state','8-stream-table-duality':'Correctness & state','10-backpressure':'Correctness & state',
+  '6-rollup-cube':'Architecture','11-lambda-vs-kappa':'Architecture','12-schema-evolution':'Architecture',
+};
+navEl.setAttribute('role','tablist'); navEl.setAttribute('aria-orientation','vertical');
+let curTier=null, groupEl=null;
+sections.forEach((sec,i)=>{ const id=slug(sec), tier=TIER_OF[id]||'More';
+  if(tier!==curTier){ groupEl=document.createElement('div'); groupEl.className='nav-group';
+    const h=document.createElement('div'); h.className='nav-group-label'; h.textContent=tier; groupEl.appendChild(h); navEl.appendChild(groupEl); curTier=tier; }
+  sec.id='panel-'+id; sec.setAttribute('role','tabpanel');
+  const parts=sec.dataset.tab.split('·').map(s=>s.trim());
+  const b=document.createElement('button'); b.className='nav-item'; b.setAttribute('role','tab');
+  b.innerHTML=`<span class="n">${parts.length>1?parts[0]:''}</span><span class="t">${parts.length>1?parts[1]:parts[0]}</span>`;
+  b.onclick=()=>{ activate(i,true); closeNav(); };
+  b.onkeydown=(e)=>{ const d=e.key==='ArrowDown'?1:e.key==='ArrowUp'?-1:e.key==='Home'?'first':e.key==='End'?'last':0; if(!d)return; e.preventDefault();
+    const n=d==='first'?0:d==='last'?sections.length-1:(i+d+sections.length)%sections.length; activate(n,true); tabButtons[n].focus(); };
+  tabButtons.push(b); groupEl.appendChild(b); });
+function activate(i,push){ sections.forEach((s,j)=>s.classList.toggle('active',i===j));
+  tabButtons.forEach((b,j)=>{ const on=i===j; b.classList.toggle('active',on); b.setAttribute('aria-selected',String(on)); b.tabIndex=on?0:-1; });
+  if(push && location.hash.slice(1)!==slug(sections[i])) history.replaceState(null,'','#'+slug(sections[i]));
+  window.scrollTo({ top:0, behavior: reduceMotion?'auto':'smooth' });
+  if(PANELS[i] && !PANELS[i].done){ PANELS[i](); PANELS[i].done=true; } }
+function fromHash(){ const i=sections.findIndex(s=>slug(s)===location.hash.slice(1)); activate(i>=0?i:0,false); }
+addEventListener('hashchange',fromHash);
+document.getElementById('hamburger')?.addEventListener('click',()=>appEl.classList.toggle('nav-open'));
+document.getElementById('backdrop')?.addEventListener('click',closeNav);
+addEventListener('keydown',e=>{ if(e.key==='Escape') closeNav(); });
+
+const $=(s,r=document)=>r.querySelector(s), NS='http://www.w3.org/2000/svg';
+function S(tag, attrs={}, kids=[]){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k, attrs[k]); for(const c of [].concat(kids)) if(c) e.appendChild(c); return e; }
+function txt(t){ return document.createTextNode(t); }
+function clear(el){ while(el.firstChild) el.removeChild(el.firstChild); return el; }
+function verdict(sel,tsel,kind,text){ const v=$(sel); v.className='verdict '+kind; $(tsel).innerHTML=text; }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function hash32(str, seed){ let h=(2166136261^(seed||0))>>>0; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } h^=h>>>16; h=Math.imul(h,0x85ebca6b)>>>0; h^=h>>>13; h=Math.imul(h,0xc2b2ae35)>>>0; h^=h>>>16; return h>>>0; }
+function fmt(n){ if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1)+'M'; if(n>=1e3) return (n/1e3).toFixed(n>=1e4?0:1)+'k'; return ''+Math.round(n); }
+function chartBars(el, vals, colorFn, labelFn){ clear(el); const mx=Math.max(...vals,1); vals.forEach((v,i)=>{ const col=S('div',{class:'colb'}); const bar=S('div',{class:'gp'}); bar.style.background=colorFn(v,i); bar.style.height=(v/mx*118)+'px'; const rn=S('div',{class:'rn'}); rn.textContent=labelFn?labelFn(i):''; col.appendChild(bar); col.appendChild(rn); el.appendChild(col); }); }
+
+const PANELS = {};
+const idxOf = tab => sections.findIndex(s=>s.dataset.tab===tab);
+
+/* ══ 1 · WINDOWS ══ */
+PANELS[idxOf('1 · Windows')] = function(){
+  const svg=$('#wd-svg'); const events=[0.5,1.5,2,3.5,4,5.5,7,7.5,9]; let mode='tumble';
+  function setMode(m){ mode=m; ['tumble','slide','session'].forEach(x=>$('#wd-'+x).classList.toggle('sel',x==='tumble'?m==='tumble':x==='slide'?m==='slide':m==='session')); render(); }
+  $('#wd-tumble').onclick=()=>setMode('tumble'); $('#wd-slide').onclick=()=>setMode('slide'); $('#wd-session').onclick=()=>setMode('session');
+  function render(){ clear(svg); const W=420, X0=20, X1=400, sc=(X1-X0)/10;
+    svg.appendChild(S('line',{x1:X0,y1:120,x2:X1,y2:120,stroke:'var(--muted)','stroke-width':1}));
+    for(let s=0;s<=10;s++){ const x=X0+s*sc; svg.appendChild(S('line',{x1:x,y1:116,x2:x,y2:124,stroke:'var(--muted)','stroke-width':.6})); svg.appendChild(S('text',{x,y:138,'text-anchor':'middle','font-size':8,fill:'var(--muted)'},[txt(s)])); }
+    let wins=[], note='';
+    if(mode==='tumble'){ for(let s=0;s<10;s+=4) wins.push([s,Math.min(10,s+4)]); note='tumbling: size 4, no overlap — each event in exactly 1 window.'; }
+    else if(mode==='slide'){ for(let s=-3;s<10;s+=1) wins.push([Math.max(0,s),Math.min(10,s+4)]); note='sliding: size 4, slide 1 — each event in up to 4 windows (fan-out).'; }
+    else { // session: gap>1.5 splits
+      let start=events[0], prev=events[0]; const segs=[];
+      for(let i=1;i<events.length;i++){ if(events[i]-prev>1.5){ segs.push([start,prev]); start=events[i]; } prev=events[i]; } segs.push([start,prev]);
+      wins=segs.map(([a,b])=>[a-0.2,b+0.2]); note='session: closes after a 1.5s inactivity gap — variable length per burst.'; }
+    wins.forEach((w,i)=>{ const y=20+(i%4)*20; svg.appendChild(S('rect',{x:X0+w[0]*sc,y,width:(w[1]-w[0])*sc,height:16,rx:4,fill:'var(--accent-soft)',stroke:'var(--accent)','stroke-width':1,opacity:.8})); });
+    for(const e of events){ const x=X0+e*sc; svg.appendChild(S('circle',{cx:x,cy:120,r:4.5,fill:'var(--accent)',stroke:'var(--panel)','stroke-width':1.2})); }
+    const maxOverlap=Math.max(...events.map(e=>wins.filter(w=>e>=w[0]&&e<w[1]).length));
+    verdict('#wd-verdict','#wd-vtext', mode==='slide'?'warn':'ok', note + (mode==='slide'?` Peak: an event sits in <b>${maxOverlap}</b> windows at once.`:''));
+  }
+  setMode('tumble');
+};
+
+/* ══ 2 · WATERMARKS ══ */
+PANELS[idxOf('2 · Watermarks')] = function(){
+  const svg=$('#wm-svg'); const arrivals=[2,5,9,7,12,8,15,19]; const WIN=10; let idx=0, seen=[];
+  function reset(){ idx=0; seen=[]; render(); verdict('#wm-verdict','#wm-vtext','warn','Deliver events one at a time — arrival order is scrambled vs event time.'); }
+  function render(msg,kind){ const lateness=+$('#wm-l').value; $('#wm-lv').textContent=lateness+'s'; clear(svg);
+    const X0=20,X1=400,sc=(X1-X0)/20;
+    svg.appendChild(S('line',{x1:X0,y1:110,x2:X1,y2:110,stroke:'var(--muted)','stroke-width':1}));
+    for(let s=0;s<=20;s+=2){ const x=X0+s*sc; svg.appendChild(S('line',{x1:x,y1:106,x2:x,y2:114,stroke:'var(--muted)','stroke-width':.6})); svg.appendChild(S('text',{x,y:128,'text-anchor':'middle','font-size':8,fill:'var(--muted)'},[txt(s)])); }
+    // window boundaries at 10, 20
+    [10,20].forEach(b=>svg.appendChild(S('line',{x1:X0+b*sc,y1:40,x2:X0+b*sc,y2:118,stroke:'var(--line)','stroke-width':1,'stroke-dasharray':'3 3'})));
+    const maxE=seen.length?Math.max(...seen):0; const wm=Math.max(0,maxE-lateness);
+    // watermark line
+    if(seen.length) svg.appendChild(S('line',{x1:X0+wm*sc,y1:44,x2:X0+wm*sc,y2:118,stroke:'var(--amber)','stroke-width':2}));
+    if(seen.length) svg.appendChild(S('text',{x:X0+wm*sc,y:38,'text-anchor':'middle','font-size':8.5,fill:'var(--amber)'},[txt('watermark '+wm)]));
+    seen.forEach((e,i)=>{ const x=X0+e*sc; const late = e<wm && i===seen.length-1; // just-delivered late
+      const isLate = e < (Math.max(...seen.slice(0,i).concat(0))-lateness); // behind watermark at its arrival
+      svg.appendChild(S('circle',{cx:x,cy:90,r:5,fill: e<wm && i===idx-1 ? 'var(--bad)':'var(--accent)',stroke:'var(--panel)','stroke-width':1.2}));
+      svg.appendChild(S('text',{x,y:78,'text-anchor':'middle','font-size':7.5,fill:'var(--muted)'},[txt('e'+(arrivals.indexOf(e)+1))])); });
+    if(msg) verdict('#wm-verdict','#wm-vtext',kind,msg);
+  }
+  $('#wm-step').onclick=()=>{ if(idx>=arrivals.length){ verdict('#wm-verdict','#wm-vtext','ok','All delivered. Reset to replay, or change allowed lateness.'); return; }
+    const e=arrivals[idx]; const lateness=+$('#wm-l').value; const prevMax=seen.length?Math.max(...seen):0; const wm=Math.max(0,prevMax-lateness);
+    seen.push(e); idx++;
+    const late = e < wm;
+    if(late) render(`Event at t=${e}s arrived, but the watermark is already at ${wm} → <b>LATE</b> (window [0,10) fired). Drop or side-output it.`,'bad');
+    else render(`Event at t=${e}s delivered. Watermark = max(${Math.max(...seen)}) − ${lateness} = ${Math.max(0,Math.max(...seen)-lateness)}. ${Math.max(...seen)-lateness>=10?'Window [0,10) has now closed and fired.':''}`,'ok');
+  };
+  $('#wm-reset').onclick=reset; $('#wm-l').oninput=()=>render();
+  reset();
+};
+
+/* ══ 9 · JOINS ══ */
+PANELS[idxOf('9 · Stream joins')] = function(){
+  const svg=$('#jn-svg'); let mode='ss';
+  function setMode(m){ mode=m; $('#jn-ss').classList.toggle('sel',m==='ss'); $('#jn-st').classList.toggle('sel',m==='st');
+    $('#jn-ss-ctl').style.display=m==='ss'?'block':'none'; $('#jn-st-ctl').style.display=m==='st'?'block':'none'; render(); }
+  $('#jn-ss').onclick=()=>setMode('ss'); $('#jn-st').onclick=()=>setMode('st'); $('#jn-w').oninput=render; $('#jn-asof').onchange=render;
+  function render(){ clear(svg);
+    if(mode==='ss'){ const W=+$('#jn-w').value; $('#jn-wv').textContent=W+'s';
+      const imp=20, click1=imp+18, click2=imp+50; const X0=30,sc=6;
+      svg.appendChild(S('text',{x:20,y:20,'font-size':9,fill:'var(--muted)'},[txt('impressions →')])); svg.appendChild(S('text',{x:20,y:70,'font-size':9,fill:'var(--muted)'},[txt('clicks →')]));
+      svg.appendChild(S('circle',{cx:X0+imp*sc,cy:40,r:6,fill:'var(--accent)'})); svg.appendChild(S('text',{x:X0+imp*sc,y:30,'text-anchor':'middle','font-size':8,fill:'var(--muted)'},[txt('imp@'+imp)]));
+      // window
+      svg.appendChild(S('rect',{x:X0+imp*sc,y:36,width:W*sc,height:52,fill:'var(--accent-soft)',opacity:.4}));
+      svg.appendChild(S('text',{x:X0+imp*sc+W*sc/2,y:100,'text-anchor':'middle','font-size':8,fill:'var(--accent)'},[txt(W+'s window')]));
+      [click1,click2].forEach((c,i)=>{ const inWin=c<=imp+W; svg.appendChild(S('circle',{cx:X0+c*sc,cy:75,r:6,fill:inWin?'var(--good)':'var(--bad)'})); svg.appendChild(S('text',{x:X0+c*sc,y:66,'text-anchor':'middle','font-size':8,fill:inWin?'var(--good)':'var(--bad)'},[txt('clk@'+c)])); });
+      const c1in=click1<=imp+W, c2in=click2<=imp+W;
+      verdict('#jn-verdict','#jn-vtext', 'ok', `Click@${click1} is within ${W}s of the impression → <b>attributed ✓</b>. Click@${click2} is ${c2in?'also in':'outside'} the window → ${c2in?'attributed':'<b>no attribution</b>'}. State = window × throughput.`);
+      $('#jn-proof').innerHTML='<b>The proof:</b> a click within the window of its impression is attributed; a click after the window closes misses the join. Widen the window to catch more — but state grows with window × throughput, so a wide window on a high-volume stream is a memory bomb.';
+    } else {
+      const asof=$('#jn-asof').checked;
+      // price history: $10 until t=5, $20 after. Order at event-time t=3 (price was $10). Current price $20.
+      const orderT=3, priceAtT=10, currentPrice=20; const enrich=asof?priceAtT:currentPrice;
+      svg.appendChild(S('text',{x:20,y:24,'font-size':10,fill:'var(--ink)'},[txt('price history:  $10 (t<5)   →   $20 (t≥5)')]));
+      svg.appendChild(S('line',{x1:20,y1:60,x2:400,y2:60,stroke:'var(--line)'}));
+      svg.appendChild(S('rect',{x:20,y:50,width:180,height:20,fill:'var(--accent-soft)',opacity:.5})); svg.appendChild(S('text',{x:110,y:64,'text-anchor':'middle','font-size':9,fill:'var(--accent)'},[txt('$10')]));
+      svg.appendChild(S('rect',{x:200,y:50,width:200,height:20,fill:'var(--amber-soft)',opacity:.6})); svg.appendChild(S('text',{x:300,y:64,'text-anchor':'middle','font-size':9,fill:'var(--amber)'},[txt('$20')]));
+      svg.appendChild(S('circle',{cx:20+orderT*36,cy:60,r:6,fill:'var(--ink)'})); svg.appendChild(S('text',{x:20+orderT*36,y:44,'text-anchor':'middle','font-size':8,fill:'var(--muted)'},[txt('order @t=3')]));
+      svg.appendChild(S('text',{x:20,y:100,'font-size':11,fill: asof?'var(--good)':'var(--bad)'},[txt(`enriched price = $${enrich}  ${asof?'✓ as-of event time (reproducible)':'✗ current value (wrong on replay!)'}`)]));
+      verdict('#jn-verdict','#jn-vtext', asof?'ok':'bad', asof? `Temporal join: the order at t=3 gets the price valid <b>then</b> ($10) — reproducible on replay.` : `Naive lookup uses the <b>current</b> price ($20), but the order happened when it was $10 → non-reproducible; a replay gives a different number (the SCD trap).`);
+      $('#jn-proof').innerHTML='<b>The proof:</b> stream-table enrichment must join against the dimension value <em>as of the event\'s event time</em>, not the current value. A naive "current" lookup means replaying the same log a year later produces different numbers — the slowly-changing-dimension problem reappearing in streaming.';
+    }
+  }
+  setMode('ss');
+};
+
+/* ══ 3 · COUNT-MIN ══ */
+PANELS[idxOf('3 · Count-Min')] = function(){
+  const D=3; const svg=$('#cm-svg');
+  function render(run){ const W=+$('#cm-w').value; $('#cm-wv').textContent=W; $('#cm-cells').textContent=D*W;
+    const rnd=mulberry32(3); const items=['#cat','#dog','#sf','#js','#ml'];
+    // weighted stream: cat very hot
+    const weights=[1400,800,400,250,150]; const N=weights.reduce((a,b)=>a+b,0);
+    const grid=Array.from({length:D},()=>new Array(W).fill(0)); const truth={};
+    for(let i=0;i<items.length;i++){ truth[items[i]]=weights[i]; for(let r=0;r<D;r++){ const c=hash32(items[i],r+1)%W; grid[r][c]+=weights[i]; } }
+    // noise items to cause collisions
+    for(let k=0;k<40;k++){ const it='noise'+k; for(let r=0;r<D;r++){ const c=hash32(it,r+1)%W; grid[r][c]+=Math.floor(rnd()*30); } }
+    // draw grid
+    clear(svg); const cw=Math.min(30,380/W), ch=28;
+    for(let r=0;r<D;r++)for(let c=0;c<W;c++){ const mx=Math.max(...grid.flat(),1); const v=grid[r][c]; const t=v/mx;
+      svg.appendChild(S('rect',{x:20+c*cw,y:20+r*ch,width:cw-2,height:ch-2,rx:2,fill:`color-mix(in srgb, var(--accent) ${Math.round(t*70)}%, var(--panel))`,stroke:'var(--line)','stroke-width':.5})); }
+    svg.appendChild(S('text',{x:20,y:16,'font-size':8,fill:'var(--muted)'},[txt(`${D} rows × ${W} counters`)]));
+    $('#cm-tbody').innerHTML=items.map(it=>{ const est=Math.min(...Array.from({length:D},(_,r)=>grid[r][hash32(it,r+1)%W])); const over=est-truth[it];
+      return `<tr><td>${it}</td><td>${truth[it]}</td><td>${est}</td><td style="color:${over>0?'var(--amber)':'var(--good)'}">+${over}</td></tr>`; }).join('');
+    verdict('#cm-verdict','#cm-vtext','ok',`${D}×${W} = <b>${D*W} counters</b> estimate 5 items' frequencies. Estimate = min across rows, always ≥ true. Wider rows → fewer collisions → tighter.`);
+  }
+  $('#cm-w').oninput=()=>render(true); $('#cm-run').onclick=()=>render(true); render(true);
+};
+
+/* ══ 4 · HYPERLOGLOG ══ */
+PANELS[idxOf('4 · HyperLogLog')] = function(){
+  function render(){ const c=+$('#hl-c').value; $('#hl-cv').textContent=fmt(c);
+    // model HLL ~2% relative error deterministically (vary by a hash of c)
+    const err=((hash32(''+c)%400)/10000)-0.02; // -2%..+2%
+    const est=Math.round(c*(1+err));
+    $('#hl-true').textContent=fmt(c); $('#hl-est').textContent=fmt(est); $('#hl-mem').textContent='~12 KB';
+    const pct=(Math.abs(est-c)/c*100).toFixed(1);
+    verdict('#hl-verdict','#hl-vtext','ok',`<b>${fmt(c)}</b> distinct estimated as <b>${fmt(est)}</b> (${pct}% error) in a fixed <b>~12 KB</b> — regardless of scale. Exact counting would need a set of every id (megabytes).`);
+  }
+  $('#hl-c').oninput=render; render();
+};
+
+/* ══ 5 · BLOOM ══ */
+PANELS[idxOf('5 · Bloom filter')] = function(){
+  function render(){ const bpi=+$('#bf-b').value; $('#bf-bv').textContent=bpi;
+    const n=1000, m=n*bpi, k=Math.max(1,Math.round(bpi*0.693)); const bits=new Uint8Array(m);
+    for(let i=0;i<n;i++){ for(let j=0;j<k;j++){ bits[hash32('item'+i,j+1)%m]=1; } }
+    let fp=0, tests=10000, fn=0;
+    for(let i=0;i<tests;i++){ const key='miss'+i; let all=true; for(let j=0;j<k;j++){ if(!bits[hash32(key,j+1)%m]){ all=false; break; } } if(all) fp++; }
+    const rate=fp/tests, formula=Math.pow(1-Math.exp(-k*n/m),k);
+    $('#bf-fn').textContent=fn; $('#bf-fp').textContent=(rate*100).toFixed(2)+'%'; $('#bf-formula').textContent=(formula*100).toFixed(2)+'%';
+    verdict('#bf-verdict','#bf-vtext','ok',`k=${k} hashes, ${bpi} bits/item → measured FP <b>${(rate*100).toFixed(2)}%</b> vs textbook <b>${(formula*100).toFixed(2)}%</b>. Zero false negatives, always.`);
+  }
+  $('#bf-b').oninput=render; $('#bf-run').onclick=render; render();
+};
+
+/* ══ 7 · EXACTLY-ONCE ══ */
+PANELS[idxOf('7 · Exactly-once')] = function(){
+  const svg=$('#eo-svg'); let mode='naive';
+  function setMode(m){ mode=m; $('#eo-naive').classList.toggle('sel',m==='naive'); $('#eo-idem').classList.toggle('sel',m==='idem'); }
+  $('#eo-naive').onclick=()=>setMode('naive'); $('#eo-idem').onclick=()=>setMode('idem');
+  $('#eo-run').onclick=()=>{ // 10 events, checkpoint after 6, crash after 9, replay from 7
+    const total = mode==='naive'? 13 : 10; // naive replays events 7,8,9 → +3 over
+    $('#eo-actual').textContent=total; $('#eo-actual').style.color = total>10?'var(--bad)':'var(--good)';
+    clear(svg); const X0=20,sc=36;
+    for(let i=0;i<10;i++){ const x=X0+i*sc; svg.appendChild(S('rect',{x,y:40,width:30,height:24,rx:4,fill: (i>=6&&i<9)?'var(--amber-soft)':'var(--accent-soft)',stroke:'var(--accent)','stroke-width':1})); svg.appendChild(S('text',{x:x+15,y:56,'text-anchor':'middle','font-size':9,fill:'var(--ink)'},[txt('e'+(i+1))])); }
+    svg.appendChild(S('line',{x1:X0+6*sc-3,y1:30,x2:X0+6*sc-3,y2:76,stroke:'var(--good)','stroke-width':2})); svg.appendChild(S('text',{x:X0+6*sc-3,y:24,'text-anchor':'middle','font-size':8,fill:'var(--good)'},[txt('checkpoint')]));
+    svg.appendChild(S('line',{x1:X0+9*sc-3,y1:30,x2:X0+9*sc-3,y2:76,stroke:'var(--bad)','stroke-width':2})); svg.appendChild(S('text',{x:X0+9*sc-3,y:24,'text-anchor':'middle','font-size':8,fill:'var(--bad)'},[txt('💥 crash')]));
+    svg.appendChild(S('text',{x:X0,y:100,'font-size':9,fill:'var(--muted)'},[txt('replay e7–e9 (amber) after rewinding to checkpoint')]));
+    if(mode==='naive') verdict('#eo-verdict','#eo-vtext','bad',`Counter sink: e7–e9 replayed after the crash are counted <b>twice</b> → total <b>13</b>, not 10. Over-count. No exactly-once from a non-idempotent sink.`);
+    else verdict('#eo-verdict','#eo-vtext','ok',`Idempotent upsert (keyed by event id): replaying e7–e9 overwrites, a no-op → total <b>converges to 10</b>. Effectively-once by effect on state.`);
+  };
+  setMode('naive'); $('#eo-run').click();
+};
+
+/* ══ 8 · DUALITY ══ */
+PANELS[idxOf('8 · Stream-table duality')] = function(){
+  const changes=[['alice',100],['bob',20],['alice',150],['carol',30],['alice',175],['bob',45]]; let n=0;
+  function render(msg,kind){ const compact=$('#du-compact').checked; const shown=changes.slice(0,n);
+    const table=new Map(); for(const [k,v] of shown) table.set(k,v);
+    let streamRecs=shown;
+    if(compact){ // keep only latest per key in order of last occurrence
+      const lastIdx=new Map(); shown.forEach((c,i)=>lastIdx.set(c[0],i)); streamRecs=shown.filter((c,i)=>lastIdx.get(c[0])===i); }
+    $('#du-stream').innerHTML = streamRecs.length? streamRecs.map(([k,v])=>`<span class="tok">${k}=${v}</span>`).join('') : '<span class="tok" style="opacity:.5">(empty)</span>';
+    $('#du-table').innerHTML = table.size? [...table].map(([k,v])=>`<span class="tok ok">${k}=${v}</span>`).join('') : '<span class="tok" style="opacity:.5">(empty)</span>';
+    if(msg) verdict('#du-verdict','#du-vtext',kind,msg);
+  }
+  $('#du-add').onclick=()=>{ if(n<changes.length){ n++; const [k,v]=changes[n-1]; render(`Appended <code>${k}=${v}</code> to the changelog. Fold by key → the table's ${k} row updates to ${v}.`,'ok'); } else render('Full changelog appended. Toggle compaction to see the log become the table.','warn'); };
+  $('#du-compact').onchange=()=>{ render($('#du-compact').checked? `Compacted: only the latest record per key survives (${new Set(changes.slice(0,n).map(c=>c[0])).size} of ${n}) — the compacted log <b>is</b> the table.`:`Full changelog: every record retained (KStream).`, 'ok'); };
+  $('#du-reset').onclick=()=>{ n=0; $('#du-compact').checked=false; render('Append changes and watch the changelog (stream) fold into the latest-per-key table.','warn'); };
+  $('#du-reset').onclick();
+};
+
+/* ══ 10 · BACKPRESSURE ══ */
+PANELS[idxOf('10 · Backpressure')] = function(){
+  const TICKS=20; let mode='flow';
+  function setMode(m){ mode=m; $('#bp-flow').classList.toggle('sel',m==='flow'); $('#bp-naive').classList.toggle('sel',m==='naive'); }
+  $('#bp-flow').onclick=()=>setMode('flow'); $('#bp-naive').onclick=()=>setMode('naive');
+  $('#bp-run').onclick=()=>{ const series=[]; let lag=0, mem=0;
+    for(let t=0;t<TICKS;t++){ const slow = t>=4&&t<12; const arrive=8; const sinkRate= slow?3:9;
+      if(mode==='flow'){ // source throttles to sink rate; backlog → lag (durable)
+        const consumed=Math.min(arrive,sinkRate); lag += arrive-consumed; if(!slow && lag>0){ const drain=Math.min(lag,sinkRate-arrive>0?sinkRate-arrive:0); lag-=Math.max(0,Math.min(lag,6)); } mem=Math.min(12,lag>0?6:2); series.push(Math.max(0,lag)); }
+      else { // naive: memory grows unbounded when slow
+        mem += slow? (arrive-sinkRate) : (arrive-sinkRate<0? -Math.min(mem,4):0); mem=Math.max(0,mem); series.push(mem); }
+    }
+    const mx=Math.max(...series);
+    const col = mode==='flow' ? function(){ return 'var(--good)'; } : function(v,i){ return series[i]>=mx*0.85?'var(--bad)':'var(--accent)'; };
+    chartBars($('#bp-chart'), series, col, i=> i%5===0?'t'+i:'');
+    $('#bp-legend').textContent = mode==='flow'? 'Kafka lag (operator memory bounded) per tick · sink slow ticks 4–11, then recovers' : 'operator memory per tick (no flow control) — grows unbounded → OOM';
+    const peak=Math.max(...series), last=series[series.length-1];
+    if(mode==='flow') verdict('#bp-verdict','#bp-vtext','ok',`Credit-based: the throttle cascades to the source; the backlog sits as <b>Kafka lag</b> (peak ${peak}), operator memory stays bounded, and lag <b>drains to ${last}</b> once the sink recovers. Latency degraded, no loss.`);
+    else verdict('#bp-verdict','#bp-vtext','bad',`Naive consumer: no flow control, so it keeps pulling and in-memory buffer grows to <b>${peak}</b> and never recovers → <b>OOM</b>. This is why you use a real stream engine.`);
+  };
+  setMode('flow'); $('#bp-run').click();
+};
+
+/* ══ 6 · ROLLUP ══ */
+PANELS[idxOf('6 · Rollup cube')] = function(){
+  const svg=$('#ru-svg');
+  $('#ru-run').onclick=()=>{ const rnd=mulberry32(11); const minutes=Array.from({length:1440},()=>20+Math.floor(rnd()*80));
+    const day=minutes.reduce((a,b)=>a+b,0); const hours=[]; for(let h=0;h<24;h++){ let s=0; for(let m=0;m<60;m++) s+=minutes[h*60+m]; hours.push(s); }
+    const hourSum=hours.reduce((a,b)=>a+b,0);
+    clear(svg);
+    svg.appendChild(S('text',{x:20,y:24,'font-size':10,fill:'var(--muted)'},[txt('raw firehose → minute grain (built once) → hour → day')]));
+    // three bars: raw recount, sum of minutes, sum of hours — all equal
+    const vals=[['raw recount',day],['Σ 1440 minutes',minutes.reduce((a,b)=>a+b,0)],['Σ 24 hours',hourSum]];
+    vals.forEach((v,i)=>{ const y=45+i*30; svg.appendChild(S('rect',{x:20,y,width:280,height:20,rx:4,fill:'var(--accent-soft)',stroke:'var(--accent)'})); svg.appendChild(S('text',{x:28,y:y+14,'font-size':10,fill:'var(--ink)'},[txt(v[0])])); svg.appendChild(S('text',{x:296,y:y+14,'text-anchor':'end','font-size':10,fill:'var(--accent)'},[txt(fmt(v[1]))])); });
+    verdict('#ru-verdict','#ru-vtext','ok',`Day total <b>${fmt(day)}</b> = Σ minutes = Σ hours — <b>exactly equal</b>. Build the minute grain once; derive coarser grains by summing, never rescanning the firehose.`);
+  };
+  $('#ru-run').click();
+};
+
+/* ══ 11 · LAMBDA VS KAPPA ══ */
+PANELS[idxOf('11 · Lambda vs Kappa')] = function(){
+  let mode='lambda';
+  function setMode(m){ mode=m; $('#lk-lambda').classList.toggle('sel',m==='lambda'); $('#lk-kappa').classList.toggle('sel',m==='kappa'); }
+  $('#lk-lambda').onclick=()=>setMode('lambda'); $('#lk-kappa').onclick=()=>setMode('kappa');
+  $('#lk-run').onclick=()=>{ // log of 100 events + 1 late event = true 101; speed layer drops the late one → 100
+    const trueTotal=101, speedDrops=1;
+    if(mode==='lambda'){ $('#lk-batch').textContent=trueTotal; $('#lk-batch').style.color='var(--good)'; $('#lk-speed').textContent=trueTotal-speedDrops; $('#lk-speed').style.color='var(--bad)';
+      verdict('#lk-verdict','#lk-vtext','bad',`Lambda: batch layer = <b>${trueTotal}</b> (counts the late event), speed layer = <b>${trueTotal-speedDrops}</b> (drops it) — the two <b>disagree</b>. Two codebases the serving layer must merge, and they drift on every logic change.`);
+    } else { $('#lk-batch').textContent=trueTotal; $('#lk-batch').style.color='var(--good)'; $('#lk-speed').textContent=trueTotal; $('#lk-speed').style.color='var(--good)';
+      verdict('#lk-verdict','#lk-vtext','ok',`Kappa: one codebase. Replaying the log yields <b>${trueTotal}</b> — identical to a fresh run — and the same function runs as bounded batch (backfill) or unbounded stream (live). No drift.`);
+    }
+  };
+  setMode('lambda'); $('#lk-run').click();
+};
+
+/* ══ 12 · SCHEMA EVOLUTION ══ */
+PANELS[idxOf('12 · Schema evolution')] = function(){
+  let logs=[], version=1;
+  function reset(){ logs=['registry: ClickEvent v1 {userId, pageId, ts} · mode=BACKWARD']; version=1; paint(); verdict('#se-verdict','#se-vtext','warn','Try adding an optional field (safe) vs a rename (breaking).'); }
+  function paint(){ $('#se-log').innerHTML=logs.join('<br>'); }
+  $('#se-add').onclick=()=>{ if(version<2){ version=2; logs.unshift('✓ v2 {…, campaignId?=null} registered — BACKWARD compatible'); logs.unshift('  → v1 consumer reads v2 data (ignores campaignId); v2 consumer reads v1 data (default null)'); paint();
+      verdict('#se-verdict','#se-vtext','ok','Adding an <b>optional field with a default</b> is accepted — old and new consumers interoperate, no coordinated deploy.'); } else verdict('#se-verdict','#se-vtext','warn','campaignId already added.'); };
+  $('#se-rename').onclick=()=>{ logs.unshift('✗ REJECTED: rename pageId → pageUrl is a breaking change (removes a required field)'); logs.unshift('  → fix: add pageUrl optional, backfill, deprecate pageId over a release — a migration, not a rename'); paint();
+    verdict('#se-verdict','#se-vtext','bad','A <b>rename</b> is rejected at registration — before any bad record is produced. Handle it as a migration.'); };
+  $('#se-reset').onclick=reset; reset();
+};
+fromHash();
+</script>
+</body>
+</html>
