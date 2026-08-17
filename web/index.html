@@ -148,7 +148,7 @@
   <aside class="sidebar" id="sidebar">
     <div class="brand"><span class="glyph">≋</span><span class="wm"><b>Stream Lab</b><span>Stream processing</span></span></div>
     <nav class="nav" id="nav" aria-label="Lessons"></nav>
-    <div class="side-foot">Every panel is also a runnable <code style="font-size:10px">npm run phaseN</code>.<br /><a href="https://github.com/swapnull-in/stream-processing" target="_blank" rel="noopener">View source ↗</a></div>
+    <div class="side-foot">Every panel is also a runnable <code style="font-size:10px">npm run phaseN</code>.<br /><a href="https://github.com/swapnull-in/stream-processing" target="_blank" rel="noopener">View source ↗</a> · <a href="https://system-design-labs.pages.dev" target="_blank" rel="noopener">all 10 labs ↗</a></div>
   </aside>
   <div class="backdrop" id="backdrop"></div>
   <main class="main">
@@ -475,11 +475,33 @@
       </div></div>
     </section>
 
+    <!-- 13 · TOP-K ANALYTICS -->
+    <section class="phase" data-tab="13 · Top-K analytics">
+      <h2>Top-K analytics — fast-approximate, slow-exact</h2>
+      <p class="lede">"Top songs right now" at stream scale: a <strong>Count-Min Sketch + a K-heap</strong> gives a
+        real-time answer in fixed memory (slight overcount); an <strong>exact batch</strong> over the log corrects it
+        later. Two contracts from one stream. <em>(Deep Dive 27 · <code>npm run phase13</code>)</em></p>
+      <div class="card"><div class="lab">
+        <div class="controls">
+          <button class="act" id="tk-run">▶ Stream 20,000 plays (zipf over 2,000 songs)</button>
+          <div class="verdict" id="tk-verdict"><span class="dot"></span><span id="tk-vtext">Run the stream and compare the fast path against the exact recount.</span></div>
+        </div>
+        <div class="stage">
+          <div class="log-list" id="tk-out" style="font-family:var(--mono);font-size:12.5px;line-height:1.8;max-height:260px">—</div>
+          <p class="proof"><b>The proof:</b> the sketch+heap path holds a few KB regardless of catalog size and its
+            top-10 overlaps the exact top-10 almost perfectly — because heavy hitters tower over CMS collision noise.
+            The exact batch over the immutable log stays the system of record (payouts tolerate hours, never estimation
+            error; trending tolerates ε, never hours).</p>
+        </div>
+      </div></div>
+    </section>
     <div class="side-foot" style="margin-top:24px; padding-top:22px; border-top:1px solid var(--line); text-align:center">Browser port of the <code style="font-size:10px">src/phase*</code> scripts · same mechanics · MIT</div>
     </div><!-- /main-inner -->
   </main>
 </div>
 
+<script src="drill-data.js"></script>
+<script src="drill.js"></script>
 <script>
 const sections = [...document.querySelectorAll('section.phase')];
 const navEl = document.getElementById('nav'), appEl = document.getElementById('app');
@@ -488,6 +510,8 @@ const slug = s => s.dataset.tab.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const closeNav = () => appEl.classList.remove('nav-open');
 const TIER_OF = {
+  'drill':'Practice',
+  '13-top-k-analytics':'Deep dives',
   'overview':'Overview',
   '1-windows':'Time & windows','2-watermarks':'Time & windows','9-stream-joins':'Time & windows',
   '3-count-min':'Probabilistic toolbox','4-hyperloglog':'Probabilistic toolbox','5-bloom-filter':'Probabilistic toolbox',
@@ -774,6 +798,31 @@ PANELS[idxOf('12 · Schema evolution')] = function(){
   $('#se-reset').onclick=reset; reset();
 };
 fromHash();
+/* ══ 13 · TOP-K ANALYTICS ══ */
+(function(){
+  function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  function h32(str,seed){var h=(2166136261^seed)>>>0;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}h^=h>>>16;h=Math.imul(h,0x85ebca6b)>>>0;h^=h>>>13;h=Math.imul(h,0xc2b2ae35)>>>0;h^=h>>>16;return h>>>0;}
+  document.getElementById('tk-run').onclick=function(){
+    var r=rng(13), D=4, W=256, grid=[];
+    for(var d=0;d<D;d++){ grid.push(new Array(W).fill(0)); }
+    var exact={};
+    for(var i=0;i<20000;i++){
+      var song='song'+Math.floor(Math.pow(r(),2.2)*2000); // zipf-ish skew
+      exact[song]=(exact[song]||0)+1;
+      for(var d2=0;d2<D;d2++){ grid[d2][h32(song,d2+1)%W]++; }
+    }
+    function est(sg){ var m=Infinity; for(var d3=0;d3<D;d3++){ m=Math.min(m,grid[d3][h32(sg,d3+1)%W]); } return m; }
+    var exactTop=Object.keys(exact).sort(function(a,b){return exact[b]-exact[a];}).slice(0,10);
+    var fastTop=Object.keys(exact).map(function(sg){return [sg,est(sg)];}).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+    var fastSet={}; fastTop.forEach(function(x){fastSet[x[0]]=1;});
+    var overlap=exactTop.filter(function(sg){return fastSet[sg];}).length;
+    var html='<b>fast path (CMS '+D+'×'+W+' + heap · ~'+Math.round(D*W*4/1024)+' KB)</b> vs <b>exact (full hashmap · '+Object.keys(exact).length+' keys)</b><br><br>';
+    for(var k=0;k<10;k++){ html+= (k+1)+'. '+fastTop[k][0]+' ≈'+fastTop[k][1]+'   |   '+exactTop[k]+' ='+exact[exactTop[k]]+'<br>'; }
+    document.getElementById('tk-out').innerHTML=html;
+    var v=document.getElementById('tk-verdict'); v.className='verdict ok';
+    document.getElementById('tk-vtext').innerHTML='Fast top-10 matches exact on <b>'+overlap+'/10</b> — a few-KB sketch vs a full recount. Estimates only ever over-count.';
+  };
+})();
 </script>
 </body>
 </html>

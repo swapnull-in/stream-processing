@@ -35,6 +35,7 @@ npm install   # dev types only
 | `npm run phase10` | **Backpressure** — credit-based flow control; lag grows safely vs a naive consumer's OOM |
 | `npm run phase11` | **Lambda vs Kappa** — the two-codebase drift tax vs one replayable log |
 | `npm run phase12` | **Schema evolution** — the registry; add-optional is safe, a rename is rejected |
+| `npm run phase13` | **Top-K analytics** — CMS + heap fast path vs exact batch; sketch merge across shards *(Deep Dive 27)* |
 
 > **Phases 7–12 fold in the Staff-level cruxes** the module is built around —
 > exactly-once (a property of the *effect on state*, not delivery), stream-table
@@ -108,6 +109,14 @@ src/
 web/
   index.html  ·  serve.mjs   (the interactive Stream Lab — npm run web)
 ```
+
+## Drill & study guide
+
+The web lab has a **Drill** tab — the matching study module's interview questions
+and cheat-sheet one-liners as click-to-reveal cards (active recall: answer out
+loud before revealing). [`STUDY-GUIDE.md`](STUDY-GUIDE.md) maps every phase to
+the exact module section it implements, with the staff-level insight quoted, and
+points to the deep dives to read next.
 
 ## License
 
