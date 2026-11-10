@@ -36,6 +36,7 @@ npm install   # dev types only
 | `npm run phase11` | **Lambda vs Kappa** — the two-codebase drift tax vs one replayable log |
 | `npm run phase12` | **Schema evolution** — the registry; add-optional is safe, a rename is rejected |
 | `npm run phase13` | **Top-K analytics** — CMS + heap fast path vs exact batch; sketch merge across shards *(Deep Dive 27)* |
+| `npm run phase14` | **Reservoir sampling** — a fair fixed-size sample of an unbounded stream; bottom-k merge across shards; stratifying rare events *(Deep Dive 12 §6)* |
 
 > **Phases 7–12 fold in the Staff-level cruxes** the module is built around —
 > exactly-once (a property of the *effect on state*, not delivery), stream-table

@@ -1,6 +1,6 @@
 # Study Guide — Stream Processing & Real-Time Analytics
 
-This repo is the runnable companion to **Core Course/16-data-processing.md** (plus the design case in **34-design-realtime-analytics.md**). Study loop: read a module section, run the matching phase (`npm run phaseN`) and predict the output before you look, then explain the staff insight out loud as if an interviewer asked. Finish with the web Drill panel (`npm run web`) for spaced active recall of the one-liners and Q&A.
+This repo is the runnable companion to **[Core Course/16-data-processing.md](https://github.com/swapnull-in/system-design/blob/main/Core%20Course/16-data-processing.md)** (plus the design case in **34-design-realtime-analytics.md**). Study loop: read a module section, run the matching phase (`npm run phaseN`) and predict the output before you look, then explain the staff insight out loud as if an interviewer asked. Finish with the web Drill panel (`npm run web`) for spaced active recall of the one-liners and Q&A.
 
 ## Phase → module mapping
 
@@ -18,12 +18,14 @@ This repo is the runnable companion to **Core Course/16-data-processing.md** (pl
 | 10 | Credit-based flow control; lag grows safely vs a naive consumer's OOM | 16 §2.8 Backpressure | "It's the system trading latency for stability so you never lose data" |
 | 11 | Lambda's two drifting codepaths vs Kappa's one replayable log | 16 §6.1 Lambda vs Kappa | "the same logic in two engines that inevitably drift; Kappa bets the log is replayable" |
 | 12 | A schema registry that accepts add-optional and rejects a rename | 16 §6.5 Schema Evolution | "a field add is safe, a rename is a migration" |
+| 14 | Reservoir sampling: Algorithm R, bottom-k merge vs biased concatenation, stratified reservoirs | Deep Dive 12 §6 Reservoir Sampling | "I want examples, not a count, so it's a reservoir: fixed k, bottom-k keys so shards merge fairly, stratified so errors aren't drowned out." |
 
 ## Go deeper
 
-- **Deep Dives/07-flink.md** — the engine that productized phases 2, 7, and 10: watermarks, Chandy-Lamport checkpoints, RocksDB state, savepoints.
-- **Deep Dives/02-kafka.md** — the durable, replayable, partitioned log every phase assumes as its source; partitioning, ordering, at-least-once.
-- **Deep Dives/20-clickhouse.md** — the columnar OLAP serving layer the rollup cube (phase 6) feeds; why scans and pre-aggregation beat COUNT(*).
-- **Deep Dives/27-topk-music-analytics.md** — Count-Min Sketch + heap (phase 3) deployed as a full top-K design under interview conditions.
+- **[Deep Dives/07-flink.md](https://github.com/swapnull-in/system-design/blob/main/Deep%20Dives/07-flink.md)** — the engine that productized phases 2, 7, and 10: watermarks, Chandy-Lamport checkpoints, RocksDB state, savepoints.
+- **[Deep Dives/02-kafka.md](https://github.com/swapnull-in/system-design/blob/main/Deep%20Dives/02-kafka.md)** — the durable, replayable, partitioned log every phase assumes as its source; partitioning, ordering, at-least-once.
+- **[Deep Dives/20-clickhouse.md](https://github.com/swapnull-in/system-design/blob/main/Deep%20Dives/20-clickhouse.md)** — the columnar OLAP serving layer the rollup cube (phase 6) feeds; why scans and pre-aggregation beat COUNT(*).
+- **[Deep Dives/27-topk-music-analytics.md](https://github.com/swapnull-in/system-design/blob/main/Deep%20Dives/27-topk-music-analytics.md)** — Count-Min Sketch + heap (phase 3) deployed as a full top-K design under interview conditions.
+- **[Deep Dives/12-big-data-structures.md](https://github.com/swapnull-in/system-design/blob/main/Deep%20Dives/12-big-data-structures.md)** — the sketches from phases 3–5 with their error bounds, plus §6 on reservoir sampling: the fast and weighted variants behind phase 14.
 - **DDIA ch. 11 (Batch Processing)** — MapReduce, shuffle-and-sort, and why idempotent, re-runnable batch is the baseline streaming must beat.
 - **DDIA ch. 12 (Stream Processing)** — the book-form treatment of duality, CDC, event time, and exactly-once that phases 2 and 7–9 dramatize.
