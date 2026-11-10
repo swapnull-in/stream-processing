@@ -89,6 +89,16 @@ window.DRILL = {
       topic: "approximate counting",
       q: "When do you use approximate counting, and what's the error?",
       a: "Where a small, known error is free. Unique users per (ad x window) as an exact set is GB-TB of memory; HyperLogLog does it in ~12 KB at ~0.8% standard error, and HLLs merge — a daily count is the merge of 24 hourly sketches. Top-K over a huge key space uses Count-Min Sketch: sub-linear memory, but it over-counts (one-sided error). The judgment is matching tool to metric: approximate on dashboards, exact and reconciled for anything that bills."
+    },
+    {
+      topic: "reservoir sampling",
+      q: "You need 1,000 representative requests per minute for debugging, under a fixed storage budget, from a stream whose volume spikes 10×. Why not 'keep 1%'?",
+      a: "'Keep 1%' has an output that grows with traffic, so a 10× spike is 10× the storage, and 'keep the first 1,000' only sees the start of the window. A <b>reservoir</b> keeps exactly k: store the first k items, then for item <i>i</i> replace a random slot with probability k/i. Every item ends up in the sample with probability <b>k/n</b> without knowing n in advance, in O(k) memory and one pass. Keep a count of items seen alongside it so estimates can be scaled back up."
+    },
+    {
+      topic: "reservoir sampling",
+      q: "Each of 200 hosts keeps its own reservoir. How do you combine them into one fair sample, and what goes wrong if you just concatenate?",
+      a: "Concatenating and re-sampling is <b>biased</b>: every host contributes k items whatever its traffic, so a host with 1% of the events can end up with half the sample. Use <b>bottom-k</b>: give every item a random key, keep the k smallest keys per host, and merge by taking the k smallest overall. That is a uniform sample of the union with no coordination, the same mergeability that makes HyperLogLog work across shards. If rare classes matter (errors at 0.5%), <b>stratify</b>: one reservoir per endpoint and status, so each class keeps its own k examples."
     }
   ]
 };
